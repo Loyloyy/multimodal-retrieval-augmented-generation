@@ -1,0 +1,46 @@
+FROM nvcr.io/nvidia/pytorch:23.10-py3
+LABEL authors="Aloysius_Tan"
+
+# Allow statements and log messages to immediately appear in Knative logs
+ENV PYTHONUNBUFFERED=True
+
+# SYSTEM
+RUN apt-get update --yes --quiet && \ 
+  apt-get install --yes --quiet --no-install-recommends \
+    software-properties-common \
+    && rm -rf /var/lib/apt/lists/*
+
+ENV APP_HOME=/app
+WORKDIR $APP_HOME
+
+RUN pip install --upgrade pip && \
+  pip uninstall -y \
+    opencv \
+    torch \
+    transformer-engine \
+    apex
+
+COPY requirements_frontend.txt /app/requirements.txt
+COPY ./app.py /app/app.py
+COPY ./utils.py /app/utils.py
+
+RUN pip install -r requirements.txt  # --no-cache-dir
+
+# https://github.com/opencv/opencv-python/issues/884#issuecomment-1806982912
+RUN pip list --format=freeze | grep opencv | xargs pip uninstall -y
+
+RUN rm -rf /usr/local/lib/python3.10/dist-packages/cv2/
+RUN pip install opencv-python==4.10.0.84
+
+RUN apt-get update && \
+  apt-get install -y \
+    ffmpeg \
+    libsm6 \
+    libxext6 \
+    poppler-utils \
+    tesseract-ocr \
+  && rm -rf /var/lib/apt/lists/*
+
+EXPOSE 7860
+
+CMD ["python", "app.py"]
